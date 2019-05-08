@@ -38,8 +38,9 @@ import android.hardware.SensorManager;
 public final class MainActivity extends AppCompatActivity implements SensorEventListener{
 
     public static final String TAG = "MainActivity";
-    public static final int MEDIA_RES_ID = R.raw.jazz_in_paris;
+    public static final int MEDIA_RES_ID1 = R.raw.jazz_in_paris;
     public static final int MEDIA_RES_ID2 = R.raw.with_u;
+    public static final int MEDIA_RES_ID3 = R.raw.proleter;
 
     public int curr = 1;
     private TextView mTextDebug;
@@ -55,8 +56,8 @@ public final class MainActivity extends AppCompatActivity implements SensorEvent
 
     //proximity gesture variables
     private Sensor      proximitySensor;
-    private final int   tapGestureDuration      = 2000;
-    private final int   numOfTapsNeeded         = 2;
+    private final int   tapGestureDuration      = 1000;
+    private final int   numOfTapsNeeded         = 1;
     private long        lastTapGestureTime      = 0;
     private float       lastProximitySensorValue= 0;
     private int         numOfTapGesturesDetected= 0;
@@ -76,6 +77,7 @@ public final class MainActivity extends AppCompatActivity implements SensorEvent
     private int[]  rotationTriggerValue = {-45, 45, -45, 70};
     private long   lastRotationDetected = 0;
     private long   detectRotateEvery = 1000;
+    private float   lastAngle = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,7 +98,7 @@ public final class MainActivity extends AppCompatActivity implements SensorEvent
     @Override
     protected void onStart() {
         super.onStart();
-        mPlayerAdapter.loadMedia(MEDIA_RES_ID);
+        mPlayerAdapter.loadMedia(MEDIA_RES_ID1);
         Log.d(TAG, "onStart: create MediaPlayer");
     }
 
@@ -272,8 +274,8 @@ public final class MainActivity extends AppCompatActivity implements SensorEvent
 
                 currentAccelerometerValues[0] = event.values[0];
                 currentAccelerometerValues[1] = event.values[1];
-                currentAccelerometerValues[2] = event.values[2];
-
+                //currentAccelerometerValues[2] = event.values[2];
+                currentAccelerometerValues[2] = 0;  //ignore z-axis so it does not conflict with tilt
                 float speed = Math.abs(currentAccelerometerValues[0]+ currentAccelerometerValues[1]+  currentAccelerometerValues[2] - prevAccelerometerValues[0] - prevAccelerometerValues[1] - prevAccelerometerValues[2]) / shakeTime * 10000;
 
                 if (speed > shakeGestureThreshold && (currentTime-lastShakeGestureDetectedTime)>detectShakeEvery) {
@@ -314,32 +316,64 @@ public final class MainActivity extends AppCompatActivity implements SensorEvent
             }
 
             long currentTime = System.currentTimeMillis();
-            if ((currentTime - lastRotationDetected) > detectRotateEvery) {
+            if (playing && (currentTime - lastRotationDetected) > detectRotateEvery*3 && Math.abs(lastAngle-orientations[1]) > 5) {
 
-                //rotate forward
+                Log.d("Log", "Angle: " + orientations[1] );
+                lastAngle=orientations[1];
+                //rotate forward = next
                 if (orientations[1] < rotationTriggerValue[2]) {
 
-                    if (curr == 1) {
-                        mPlayerAdapter.reset();
-                        mPlayerAdapter.release();
-                        mPlayerAdapter.loadMedia(MEDIA_RES_ID2);
-                        mPlayerAdapter.play();
-                        lastRotationDetected = currentTime;
-                        curr=2;
+                    mPlayerAdapter.reset();
+                    mPlayerAdapter.release();
+
+                    switch(curr)
+                    {
+                        case 1:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID2);
+                            curr = 2;
+                            break;
+                        case 2:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID3);
+                            curr = 3;
+                            break;
+                        case 3:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID1);
+                            curr = 1;
+                            break;
+                        default:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID1);
+                            curr = 1;
+                            break;
+
                     }
+                    mPlayerAdapter.play();
+                    lastRotationDetected = currentTime;
                 }
-                //rotate back
+                //rotate back = play prev
                 else if (orientations[1] > rotationTriggerValue[3]) {
 
-                    if (curr == 2) {
-                        mPlayerAdapter.reset();
-                        mPlayerAdapter.release();
-                        mPlayerAdapter.loadMedia(MEDIA_RES_ID);
-                        mPlayerAdapter.play();
-                        lastRotationDetected = currentTime;
-                        curr =1;
+                    mPlayerAdapter.reset();
+                    mPlayerAdapter.release();
+                    switch(curr)
+                    {
+                        case 1:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID3);
+                            curr = 3;
+                            break;
+                        case 2:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID1);
+                            curr = 1;
+                            break;
+                        case 3:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID2);
+                            curr = 2;
+                            break;
+                        default:
+                            mPlayerAdapter.loadMedia(MEDIA_RES_ID1);
+                            curr = 1;
+                            break;
                     }
-
+                    mPlayerAdapter.play();
                     lastRotationDetected = currentTime;
                 }
             }
